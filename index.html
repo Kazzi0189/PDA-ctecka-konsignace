@@ -4,14 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PDA kontrola balení</title>
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="PDA balení" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" type="image/png" href="icons/favicon.png" />
-  <link rel="apple-touch-icon" href="icons/icon-180.png" />
-
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
@@ -23,7 +15,8 @@
     .grid{display:grid;grid-template-columns:1fr 360px;gap:12px}.card{background:#fff;border-radius:22px;padding:14px;box-shadow:0 1px 7px #0001;margin-bottom:12px}.scan-card{position:sticky;top:8px;z-index:50;border:1px solid #e2e8f0}.scan-card h3{margin:0 0 10px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     input{border:1px solid var(--line);border-radius:14px;padding:11px;font-size:16px;outline:none}input:focus{box-shadow:0 0 0 3px #cbd5e1}.grow{flex:1;min-width:200px}.qty{width:88px;text-align:center}
     table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:#fff}th,td{padding:9px;border-bottom:1px solid var(--line);font-size:14px;text-align:left;vertical-align:middle}th{background:#f8fafc;color:var(--muted);font-size:12px}tr:last-child td{border-bottom:0}.ok{background:var(--ok)}.over{background:var(--bad)}.missing{background:#fff}.current-scan{outline:3px solid #2563eb;outline-offset:-3px;box-shadow:0 0 0 4px #dbeafe inset}.current-scan td{font-weight:600}.smallbtn{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:900;cursor:pointer}.packed{width:64px;text-align:center;padding:7px}.msg{border-radius:16px;padding:12px;border:1px solid var(--line);background:#f8fafc}.msg.ok{background:var(--ok)}.msg.warn{background:var(--warn)}.msg.bad{background:var(--bad)}.msg.blue{background:var(--blue)}
-    .list{max-height:240px;overflow:auto}.pill{background:#f8fafc;border-radius:14px;padding:9px;margin:6px 0}.error-panel{border:2px solid #ef4444;background:#fff1f2}.error-head{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.jump{border:1px solid #fecaca;background:#fff;color:#991b1b;border-radius:12px;padding:7px 10px;font-weight:700;cursor:pointer}.muted{color:var(--muted)}.hidden{display:none}#reader{width:100%;min-height:260px} video{width:100%;border-radius:18px;background:#000;margin:8px 0}
+    .list{max-height:240px;overflow:auto}.pill{background:#f8fafc;border-radius:14px;padding:9px;margin:6px 0}.error-panel{border:2px solid #ef4444;background:#fff1f2}.error-head{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.jump{border:1px solid #fecaca;background:#fff;color:#991b1b;border-radius:12px;padding:7px 10px;font-weight:700;cursor:pointer}.muted{color:var(--muted)}.hidden{display:none}
+    .camera-overlay{position:fixed;inset:0;background:#020617;z-index:9999;display:flex;flex-direction:column;color:#fff}.camera-overlay.hidden{display:none}.camera-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;background:#020617;border-bottom:1px solid #1e293b}.camera-head b{font-size:17px}.camera-close{border:1px solid #475569;background:#0f172a;color:#fff;border-radius:14px;padding:11px 14px;font-weight:800;cursor:pointer}.camera-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px}.camera-tip{font-size:14px;color:#cbd5e1;text-align:center;margin:8px 0 0}.camera-reader{width:100%;max-width:760px;min-height:70vh;background:#000;border-radius:18px;overflow:hidden}.camera-reader video{width:100%!important;min-height:70vh;object-fit:cover}.camera-reader img{display:none!important}
     @media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.top{align-items:flex-start}th:nth-child(3),td:nth-child(3){display:none}}
     @media(max-width:700px){
       .scan-card{top:0;border-radius:0 0 18px 18px;margin-left:-8px;margin-right:-8px}
@@ -36,6 +29,20 @@
   </style>
 </head>
 <body>
+<div id="cameraOverlay" class="camera-overlay hidden">
+  <div class="camera-head">
+    <div>
+      <b>Skenování kamerou</b>
+      <div class="camera-tip" style="margin:2px 0 0;text-align:left">Namiř čárový kód doprostřed obrazu. Po načtení se kamera sama zavře.</div>
+    </div>
+    <button id="cameraCloseBtn" class="camera-close">Zavřít kameru</button>
+  </div>
+  <div class="camera-body">
+    <div id="reader" class="camera-reader"></div>
+    <div class="camera-tip">Tip: drž mobil trochu dál od EANu, aby mohl zaostřit.</div>
+  </div>
+</div>
+
 <div class="wrap">
   <div class="top">
     <div class="top-title"><h1>PDA kontrola balení</h1><div id="fileNameInfo" class="sub"><b>Importovaný soubor:</b> žádný</div></div>
@@ -59,7 +66,6 @@
 
       <div class="card scan-card">
         <h3>Skenování</h3>
-        <div id="reader" class="hidden" style="overflow:hidden;border-radius:18px;background:#000;margin:8px 0"></div>
         <div class="row">
           <input id="scan" class="grow" placeholder="Naskenuj EAN / katalog..." autocomplete="off" />
           <input id="qty" class="qty" type="number" min="1" step="1" inputmode="numeric" value="1" />
@@ -220,23 +226,42 @@ async function cameraScan(){
     msg('warn','Chybí knihovna pro skenování','Zařízení musí být online, aby se načetla knihovna html5-qrcode z CDN.');
     return;
   }
-  const reader=$('reader');
-  reader.classList.remove('hidden');
-  $('cameraBtn').textContent='Vypnout kameru';
-  $('cameraBtn').onclick=stopCamera;
+  await stopCamera();
+  $('cameraOverlay').classList.remove('hidden');
+  $('cameraBtn').textContent='Kamera spuštěna';
+  $('cameraBtn').disabled=true;
   html5Scanner = new Html5Qrcode('reader');
-  const config={fps:10, qrbox:{width:260,height:130}, formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]};
+  const qrWidth = Math.min(window.innerWidth - 40, 560);
+  const qrHeight = Math.max(120, Math.round(qrWidth * 0.34));
+  const config={
+    fps:14,
+    qrbox:{width:qrWidth,height:qrHeight},
+    aspectRatio:1.777,
+    rememberLastUsedCamera:true,
+    formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]
+  };
+  const cameraConstraints = {
+    facingMode:{ideal:'environment'},
+    width:{ideal:1920},
+    height:{ideal:1080},
+    advanced:[{focusMode:'continuous'}]
+  };
+  const onSuccess = decodedText => {
+    if(!decodedText)return;
+    $('scan').value=decodedText;
+    stopCamera().finally(()=>applyScan());
+  };
   try{
-    await html5Scanner.start({facingMode:'environment'}, config, decodedText=>{
-      $('scan').value=decodedText;
-      stopCamera().finally(()=>applyScan());
-    });
-    msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte.');
+    await html5Scanner.start(cameraConstraints, config, onSuccess);
+    msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
   }catch(e){
-    reader.classList.add('hidden');
-    $('cameraBtn').textContent='Skenovat kamerou';
-    $('cameraBtn').onclick=cameraScan;
-    msg('bad','Kameru se nepodařilo spustit', String(e && e.message ? e.message : e));
+    try{
+      await html5Scanner.start({facingMode:'environment'}, config, onSuccess);
+      msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
+    }catch(e2){
+      await stopCamera();
+      msg('bad','Kameru se nepodařilo spustit', String(e2 && e2.message ? e2.message : e2));
+    }
   }
 }
 async function stopCamera(){
@@ -245,8 +270,9 @@ async function stopCamera(){
     try{ await html5Scanner.clear(); }catch(e){}
     html5Scanner=null;
   }
-  $('reader').classList.add('hidden');
+  $('cameraOverlay').classList.add('hidden');
   $('cameraBtn').textContent='Skenovat kamerou';
+  $('cameraBtn').disabled=false;
   $('cameraBtn').onclick=cameraScan;
 }
 function resetPacking(){
@@ -260,15 +286,7 @@ function resetPacking(){
   msg('blue','Vynulováno','Kontrola balení je připravena znovu.');
   render();
 }
-$('loadBtn').onclick=()=>$('file').click(); $('file').onchange=e=>loadFile(e.target.files[0]); $('checkBtn').onclick=showErrorPanel; $('exportBtn').onclick=exportResult; $('showOnlyBadBtn').onclick=()=>{showOnlyBad=!showOnlyBad; render();}; $('hideErrorPanelBtn').onclick=()=>{$('errorPanel').classList.add('hidden')}; $('scanBtn').onclick=applyScan; $('scan').addEventListener('keydown',e=>{if(e.key==='Enter')applyScan()}); $('search').oninput=render; $('resetBtn').onclick=resetPacking; $('toggleIgnored').onclick=()=>{$('ignoredList').classList.toggle('hidden'); $('toggleIgnored').textContent=$('ignoredList').classList.contains('hidden')?'Zobrazit':'Skrýt'}; $('cameraBtn').onclick=cameraScan; render();
-</script>
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
-  });
-}
+$('loadBtn').onclick=()=>$('file').click(); $('file').onchange=e=>loadFile(e.target.files[0]); $('checkBtn').onclick=showErrorPanel; $('exportBtn').onclick=exportResult; $('showOnlyBadBtn').onclick=()=>{showOnlyBad=!showOnlyBad; render();}; $('hideErrorPanelBtn').onclick=()=>{$('errorPanel').classList.add('hidden')}; $('scanBtn').onclick=applyScan; $('scan').addEventListener('keydown',e=>{if(e.key==='Enter')applyScan()}); $('search').oninput=render; $('resetBtn').onclick=resetPacking; $('toggleIgnored').onclick=()=>{$('ignoredList').classList.toggle('hidden'); $('toggleIgnored').textContent=$('ignoredList').classList.contains('hidden')?'Zobrazit':'Skrýt'}; $('cameraBtn').onclick=cameraScan; $('cameraCloseBtn').onclick=stopCamera; window.addEventListener('keydown',e=>{if(e.key==='Escape')stopCamera()}); render();
 </script>
 </body>
 </html>
