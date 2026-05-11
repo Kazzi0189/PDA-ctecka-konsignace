@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pda-kontrola-baleni-v4';
+const CACHE_NAME = 'pda-kontrola-baleni-v5';
 const APP_SHELL = [
   './',
   './index.html',

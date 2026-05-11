@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="PDA balení" />
-  <link rel="manifest" href="./manifest.webmanifest?v=4" />
+  <link rel="manifest" href="./manifest.webmanifest?v=5" />
   <link rel="icon" type="image/png" href="./icons/favicon.png" />
   <link rel="apple-touch-icon" href="./icons/icon-180.png" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -131,6 +131,7 @@
 </div>
 <script>
 let items = [], ignored = [], unknown = [], html5Scanner = null, sourceFileName = '', currentScanId = '', showOnlyBad = false;
+let cameraState = 'idle', cameraStream = null, cameraRaf = 0, cameraLastDecoded = '';
 const $ = id => document.getElementById(id);
 function normalize(v){return String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()}
 function clean(v){return String(v ?? '').replace(/\.0$/,'').replace(/\s/g,'').trim()}
@@ -228,85 +229,167 @@ function exportResult(){if(hasDocumentErrors()){showErrorPanel(); msg('bad','Exp
 async function improveCameraFocus(){
   try{
     const video = document.querySelector('#reader video');
-    const stream = video && video.srcObject;
+    const stream = (video && video.srcObject) || cameraStream;
     const track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
     if(!track || !track.getCapabilities || !track.applyConstraints) return;
     const caps = track.getCapabilities();
     const advanced = [];
-    if(caps.focusMode && Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) advanced.push({focusMode:'continuous'});
+    if(caps.focusMode && Array.isArray(caps.focusMode)){
+      if(caps.focusMode.includes('continuous')) advanced.push({focusMode:'continuous'});
+      else if(caps.focusMode.includes('single-shot')) advanced.push({focusMode:'single-shot'});
+    }
     if(caps.zoom){
       const min = Number(caps.zoom.min || 1);
       const max = Number(caps.zoom.max || min);
-      const step = Number(caps.zoom.step || 0.1);
-      const wanted = Math.min(max, Math.max(min, min + (max - min) * 0.25));
-      const zoom = Math.round(wanted / step) * step;
-      advanced.push({zoom});
+      const wanted = Math.min(max, Math.max(min, min + (max - min) * 0.20));
+      advanced.push({zoom:wanted});
     }
     if(advanced.length) await track.applyConstraints({advanced});
   }catch(e){}
 }
 
+function setCameraUi(open){
+  $('cameraOverlay').classList.toggle('hidden', !open);
+  $('cameraBtn').textContent = open ? 'Kamera spuštěna' : 'Skenovat kamerou';
+  $('cameraBtn').disabled = !!open;
+}
+
+function cameraReaderReset(){
+  const reader = $('reader');
+  if(reader) reader.innerHTML = '';
+}
+
+async function handleCameraDecoded(decodedText){
+  const code = clean(decodedText);
+  if(!code || cameraState !== 'running') return;
+  if(code === cameraLastDecoded) return;
+  cameraLastDecoded = code;
+  $('scan').value = code;
+  await stopCamera();
+  applyScan();
+}
+
+async function startNativeBarcodeScanner(){
+  cameraReaderReset();
+  const reader = $('reader');
+  const video = document.createElement('video');
+  video.setAttribute('playsinline', 'true');
+  video.setAttribute('muted', 'true');
+  video.muted = true;
+  video.autoplay = true;
+  reader.appendChild(video);
+
+  const constraints = {
+    audio:false,
+    video:{
+      facingMode:{ideal:'environment'},
+      width:{ideal:1920},
+      height:{ideal:1080}
+    }
+  };
+
+  cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+  video.srcObject = cameraStream;
+  await video.play();
+  cameraState = 'running';
+  setCameraUi(true);
+  setTimeout(improveCameraFocus, 500);
+  msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
+
+  const detector = new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39']});
+  const loop = async () => {
+    if(cameraState !== 'running') return;
+    try{
+      const codes = await detector.detect(video);
+      if(codes && codes.length){
+        const raw = codes[0].rawValue || '';
+        if(raw){ await handleCameraDecoded(raw); return; }
+      }
+    }catch(e){}
+    cameraRaf = requestAnimationFrame(loop);
+  };
+  cameraRaf = requestAnimationFrame(loop);
+}
+
+async function startHtml5ScannerFallback(){
+  cameraReaderReset();
+  if(typeof Html5Qrcode === 'undefined'){
+    throw new Error('Chybí knihovna html5-qrcode. Zkontroluj připojení k internetu při prvním načtení aplikace.');
+  }
+
+  const qrWidth = Math.min(window.innerWidth - 40, 620);
+  const qrHeight = Math.max(120, Math.round(qrWidth * 0.34));
+  const config={
+    fps:12,
+    qrbox:{width:qrWidth,height:qrHeight},
+    aspectRatio:1.777,
+    rememberLastUsedCamera:false,
+    experimentalFeatures:{useBarCodeDetectorIfSupported:true},
+    formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]
+  };
+
+  html5Scanner = new Html5Qrcode('reader', false);
+  const onSuccess = decodedText => handleCameraDecoded(decodedText);
+  try{
+    await html5Scanner.start({facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}, config, onSuccess);
+  }catch(firstError){
+    try{ await html5Scanner.clear(); }catch(e){}
+    html5Scanner = new Html5Qrcode('reader', false);
+    await html5Scanner.start({facingMode:'environment'}, config, onSuccess);
+  }
+  cameraState = 'running';
+  setCameraUi(true);
+  setTimeout(improveCameraFocus, 500);
+  msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
+}
+
 async function cameraScan(){
+  if(cameraState === 'starting' || cameraState === 'running' || cameraState === 'stopping') return;
   if(!window.isSecureContext){
     msg('warn','Kamera je blokovaná prohlížečem','Skenování kamerou funguje jen přes HTTPS nebo na localhostu. Když otevřeš index.html přímo jako soubor, prohlížeč kameru většinou nepovolí. Ruční vstup a PDA čtečka jako klávesnice fungují dál.');
     return;
   }
-  if(typeof Html5Qrcode === 'undefined'){
-    msg('warn','Chybí knihovna pro skenování','Zařízení musí být online, aby se načetla knihovna html5-qrcode z CDN.');
-    return;
-  }
-  await stopCamera();
-  $('cameraOverlay').classList.remove('hidden');
-  $('cameraBtn').textContent='Kamera spuštěna';
-  $('cameraBtn').disabled=true;
-  html5Scanner = new Html5Qrcode('reader');
-  const qrWidth = Math.min(window.innerWidth - 40, 560);
-  const qrHeight = Math.max(120, Math.round(qrWidth * 0.34));
-  const config={
-    fps:14,
-    qrbox:{width:qrWidth,height:qrHeight},
-    aspectRatio:1.777,
-    rememberLastUsedCamera:true,
-    experimentalFeatures:{useBarCodeDetectorIfSupported:true},
-    formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]
-  };
-  const cameraConstraints = {
-    facingMode:{ideal:'environment'},
-    width:{ideal:1920},
-    height:{ideal:1080},
-    advanced:[{focusMode:'continuous'}]
-  };
-  const onSuccess = decodedText => {
-    if(!decodedText)return;
-    $('scan').value=decodedText;
-    stopCamera().finally(()=>applyScan());
-  };
+  cameraState = 'starting';
+  cameraLastDecoded = '';
+  setCameraUi(true);
+  cameraReaderReset();
   try{
-    await html5Scanner.start(cameraConstraints, config, onSuccess);
-    setTimeout(improveCameraFocus, 600);
-    msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
-  }catch(e){
-    try{
-      await html5Scanner.start({facingMode:'environment'}, config, onSuccess);
-      setTimeout(improveCameraFocus, 600);
-      msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
-    }catch(e2){
-      await stopCamera();
-      msg('bad','Kameru se nepodařilo spustit', String(e2 && e2.message ? e2.message : e2));
+    if('BarcodeDetector' in window && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+      await startNativeBarcodeScanner();
+    }else{
+      await startHtml5ScannerFallback();
     }
+  }catch(e){
+    const text = String(e && e.message ? e.message : e);
+    await stopCamera(true);
+    msg('bad','Kameru se nepodařilo spustit', text);
   }
 }
-async function stopCamera(){
+
+async function stopCamera(fromError=false){
+  if(cameraState === 'stopping') return;
+  const hadCamera = cameraState !== 'idle' || html5Scanner || cameraStream;
+  cameraState = 'stopping';
+  if(cameraRaf){
+    cancelAnimationFrame(cameraRaf);
+    cameraRaf = 0;
+  }
   if(html5Scanner){
-    try{ await html5Scanner.stop(); }catch(e){}
-    try{ await html5Scanner.clear(); }catch(e){}
-    html5Scanner=null;
+    const scanner = html5Scanner;
+    html5Scanner = null;
+    try{ await scanner.stop(); }catch(e){}
+    try{ await scanner.clear(); }catch(e){}
   }
-  $('cameraOverlay').classList.add('hidden');
-  $('cameraBtn').textContent='Skenovat kamerou';
-  $('cameraBtn').disabled=false;
-  $('cameraBtn').onclick=cameraScan;
+  if(cameraStream){
+    try{ cameraStream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    cameraStream = null;
+  }
+  cameraReaderReset();
+  cameraState = 'idle';
+  setCameraUi(false);
+  if(hadCamera && !fromError) $('scan').focus();
 }
+
 function resetPacking(){
   const ok = confirm('Pozor, chystáte se vynulovat všechna zadaná množství a smazat nenalezené skeny. Opravdu chcete pokračovat?');
   if(!ok)return;
@@ -349,7 +432,7 @@ async function installApp(){
 async function registerServiceWorker(){
   if(!('serviceWorker' in navigator)) return;
   try{
-    const reg = await navigator.serviceWorker.register('./service-worker.js?v=4', { scope: './' });
+    const reg = await navigator.serviceWorker.register('./service-worker.js?v=5', { scope: './' });
     reg.update && reg.update().catch(()=>{});
     if(!navigator.serviceWorker.controller){
       navigator.serviceWorker.ready.then(()=>{}).catch(()=>{});
