@@ -4,28 +4,62 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PDA kontrola balení</title>
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="PDA balení" />
+  <link rel="manifest" href="./manifest.webmanifest?v=4" />
+  <link rel="icon" type="image/png" href="./icons/favicon.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-180.png" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root{--bg:#f1f5f9;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--ok:#dcfce7;--warn:#fef3c7;--bad:#fee2e2;--blue:#dbeafe;--primary:#0f172a}
     *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
-    .wrap{max-width:1180px;margin:auto;padding:12px}.top{background:var(--card);border-radius:22px;padding:16px;box-shadow:0 1px 7px #0001;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-    h1{margin:0;font-size:26px}.sub{color:var(--muted);font-size:14px;margin-top:3px}.btn{border:0;background:var(--primary);color:#fff;border-radius:14px;padding:11px 14px;font-weight:700;cursor:pointer}.btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line)}.btn:disabled{opacity:.45;cursor:not-allowed}
+    .wrap{max-width:1180px;margin:auto;padding:12px}.top{background:var(--card);border-radius:22px;padding:16px;box-shadow:0 1px 7px #0001;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.top-title{min-width:240px}.top-actions{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 46px;gap:8px;align-items:stretch;min-width:min(100%,680px)}
+    h1{margin:0;font-size:26px}.sub{color:var(--muted);font-size:14px;margin-top:3px}.btn{border:0;background:var(--primary);color:#fff;border-radius:14px;padding:11px 14px;font-weight:700;cursor:pointer}.btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line)}.btn.danger{background:#fff;color:#b91c1c;border:1px solid #fecaca}.btn.check{font-size:15px}.iconbtn{border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:14px;width:46px;min-height:44px;font-size:19px;font-weight:900;cursor:pointer}.btn:disabled,.iconbtn:disabled{opacity:.45;cursor:not-allowed}
     .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:12px 0}.stat{background:#fff;border-radius:18px;padding:14px;box-shadow:0 1px 7px #0001}.stat b{font-size:25px;display:block}.stat span{color:var(--muted);font-size:12px}
-    .grid{display:grid;grid-template-columns:1fr 360px;gap:12px}.card{background:#fff;border-radius:22px;padding:14px;box-shadow:0 1px 7px #0001;margin-bottom:12px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:12px}.card{background:#fff;border-radius:22px;padding:14px;box-shadow:0 1px 7px #0001;margin-bottom:12px}.scan-card{position:sticky;top:8px;z-index:50;border:1px solid #e2e8f0}.scan-card h3{margin:0 0 10px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     input{border:1px solid var(--line);border-radius:14px;padding:11px;font-size:16px;outline:none}input:focus{box-shadow:0 0 0 3px #cbd5e1}.grow{flex:1;min-width:200px}.qty{width:88px;text-align:center}
-    table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:#fff}th,td{padding:9px;border-bottom:1px solid var(--line);font-size:14px;text-align:left;vertical-align:middle}th{background:#f8fafc;color:var(--muted);font-size:12px}tr:last-child td{border-bottom:0}.ok{background:var(--ok)}.over{background:var(--bad)}.missing{background:#fff}.smallbtn{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:900;cursor:pointer}.packed{width:64px;text-align:center;padding:7px}.msg{border-radius:16px;padding:12px;border:1px solid var(--line);background:#f8fafc}.msg.ok{background:var(--ok)}.msg.warn{background:var(--warn)}.msg.bad{background:var(--bad)}.msg.blue{background:var(--blue)}
-    .list{max-height:240px;overflow:auto}.pill{background:#f8fafc;border-radius:14px;padding:9px;margin:6px 0}.muted{color:var(--muted)}.hidden{display:none}video{width:100%;border-radius:18px;background:#000;margin:8px 0}
+    table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:#fff}th,td{padding:9px;border-bottom:1px solid var(--line);font-size:14px;text-align:left;vertical-align:middle}th{background:#f8fafc;color:var(--muted);font-size:12px}tr:last-child td{border-bottom:0}.ok{background:var(--ok)}.over{background:var(--bad)}.missing{background:#fff}.current-scan{outline:3px solid #2563eb;outline-offset:-3px;box-shadow:0 0 0 4px #dbeafe inset}.current-scan td{font-weight:600}.smallbtn{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:900;cursor:pointer}.packed{width:64px;text-align:center;padding:7px}.msg{border-radius:16px;padding:12px;border:1px solid var(--line);background:#f8fafc}.msg.ok{background:var(--ok)}.msg.warn{background:var(--warn)}.msg.bad{background:var(--bad)}.msg.blue{background:var(--blue)}
+    .list{max-height:240px;overflow:auto}.pill{background:#f8fafc;border-radius:14px;padding:9px;margin:6px 0}.error-panel{border:2px solid #ef4444;background:#fff1f2}.error-head{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.jump{border:1px solid #fecaca;background:#fff;color:#991b1b;border-radius:12px;padding:7px 10px;font-weight:700;cursor:pointer}.muted{color:var(--muted)}.hidden{display:none!important}
+    .camera-overlay{position:fixed;inset:0;background:#020617;z-index:9999;display:flex;flex-direction:column;color:#fff}.camera-overlay.hidden{display:none!important}.camera-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;background:#020617;border-bottom:1px solid #1e293b}.camera-head b{font-size:17px}.camera-close{border:1px solid #475569;background:#0f172a;color:#fff;border-radius:14px;padding:11px 14px;font-weight:800;cursor:pointer}.camera-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px}.camera-tip{font-size:14px;color:#cbd5e1;text-align:center;margin:8px 0 0}.camera-reader{width:100%;max-width:760px;min-height:70vh;background:#000;border-radius:18px;overflow:hidden}.camera-reader video{width:100%!important;min-height:70vh;object-fit:cover}.camera-reader img{display:none!important}
     @media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.top{align-items:flex-start}th:nth-child(3),td:nth-child(3){display:none}}
+    @media(max-width:700px){
+      .scan-card{top:0;border-radius:0 0 18px 18px;margin-left:-8px;margin-right:-8px}
+      .wrap{padding:8px} h1{font-size:22px}.top{border-radius:18px}.top-title{width:100%}.top-actions{width:100%;min-width:0;grid-template-columns:1fr 1fr 44px}.top-actions .check{grid-column:1 / -1;min-height:54px;font-size:16px}.top-actions #installBtn{grid-column:1 / -1;min-height:50px}.top-actions .secondary{min-height:52px}.iconbtn{width:44px;min-height:52px}.card{padding:10px;border-radius:18px}.stats{gap:8px}.stat{padding:10px;border-radius:16px}.stat b{font-size:22px}
+      table,thead,tbody,tr,th,td{display:block;width:100%} thead{display:none} table{border:0;background:transparent} tbody{display:block} tr{margin-bottom:10px;border:1px solid var(--line);border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 1px 4px #0000000d} tr.ok{background:var(--ok)} tr.over{background:var(--bad)} td{border-bottom:1px solid #e2e8f066;padding:8px 10px;font-size:14px} td:last-child{border-bottom:0}
+      td::before{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.02em}
+      td:nth-child(1)::before{content:'Katalog'} td:nth-child(2)::before{content:'Název'} td:nth-child(3){display:block} td:nth-child(3)::before{content:'EAN'} td:nth-child(4)::before{content:'Požadováno'} td:nth-child(5)::before{content:'Zabaleno'} td:nth-child(6)::before{content:'Stav'}
+      .packed{width:74px}.smallbtn{width:38px;height:36px}.row .btn{flex:1}.top-actions .btn{width:100%}.grow{min-width:0;width:100%}
+    }
   </style>
 </head>
 <body>
+<div id="cameraOverlay" class="camera-overlay hidden">
+  <div class="camera-head">
+    <div>
+      <b>Skenování kamerou</b>
+      <div class="camera-tip" style="margin:2px 0 0;text-align:left">Namiř čárový kód doprostřed obrazu. Po načtení se kamera sama zavře.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center"><button id="cameraFocusBtn" class="camera-close" type="button">Zaostřit</button><button id="cameraCloseBtn" class="camera-close" type="button">Zavřít kameru</button></div>
+  </div>
+  <div class="camera-body">
+    <div id="reader" class="camera-reader"></div>
+    <div class="camera-tip">Tip: drž mobil trochu dál od EANu, aby mohl zaostřit.</div>
+  </div>
+</div>
+
 <div class="wrap">
   <div class="top">
-    <div><h1>PDA kontrola balení</h1><div class="sub">Načti převodku z Excelu, skenuj EAN a kontroluj množství. Recyklační položky PHE se ignorují.</div></div>
-    <div class="row">
+    <div class="top-title"><h1>PDA kontrola balení</h1><div id="fileNameInfo" class="sub"><b>Importovaný soubor:</b> žádný</div></div>
+    <div class="top-actions">
       <input id="file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
-      <button class="btn" id="loadBtn">Načíst Excel</button>
+      <button class="btn check" id="checkBtn" disabled>Kontrola dokladu</button>
+      <button class="btn secondary" id="loadBtn">Načíst Excel</button>
       <button class="btn secondary" id="exportBtn" disabled>Export výsledku</button>
+      <button class="btn secondary hidden" id="installBtn" type="button">Instalovat aplikaci</button>
+      <button class="iconbtn" id="resetBtn" title="Vynulovat kontrolu" aria-label="Vynulovat kontrolu" disabled>🗑</button>
     </div>
   </div>
 
@@ -38,12 +72,38 @@
     <div class="stat"><span>Nenalezeno</span><b id="sUnknown">0</b></div>
   </div>
 
+      <div class="card scan-card">
+        <h3>Skenování</h3>
+        <div class="row">
+          <input id="scan" class="grow" placeholder="Naskenuj EAN / katalog..." autocomplete="off" />
+          <input id="qty" class="qty" type="number" min="1" step="1" inputmode="numeric" value="1" />
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="scanBtn">Přičíst sken</button>
+          <button class="btn secondary" id="cameraBtn">Skenovat kamerou</button>
+        </div>
+        <div id="message" class="msg blue" style="margin-top:10px"><b>Připraveno</b><br><span>Načti Excel a začni skenovat.</span></div>
+        <div class="muted" style="font-size:12px;margin-top:8px">Poznámka: kamera v prohlížeči funguje jen přes HTTPS nebo localhost. Při otevření souboru index.html přímo z úložiště ji prohlížeč může zablokovat.</div>
+      </div>
+
   <div class="grid">
     <div>
       <div class="card">
+        <div id="errorPanel" class="card error-panel hidden" style="margin:0 0 12px 0;box-shadow:none">
+          <div class="error-head">
+            <div>
+              <h3 style="margin:0">Špatné položky ke kontrole</h3>
+              <div id="errorSummary" class="muted" style="font-size:13px;margin-top:3px"></div>
+            </div>
+            <div class="row">
+              <button class="btn danger" id="showOnlyBadBtn">Zobrazit pouze špatné</button>
+              <button class="btn secondary" id="hideErrorPanelBtn">Skrýt</button>
+            </div>
+          </div>
+          <div id="errorList" class="list" style="max-height:360px;margin-top:10px"></div>
+        </div>
         <div class="row" style="margin-bottom:10px">
           <input id="search" class="grow" placeholder="Hledat katalog, název nebo EAN..." />
-          <button class="btn secondary" id="resetBtn">Vynulovat</button>
         </div>
         <div style="overflow:auto">
           <table>
@@ -55,19 +115,7 @@
     </div>
 
     <div>
-      <div class="card">
-        <h3 style="margin-top:0">Skenování</h3>
-        <video id="video" class="hidden" playsinline muted></video>
-        <div class="row">
-          <input id="scan" class="grow" placeholder="Naskenuj EAN / katalog..." autocomplete="off" />
-          <input id="qty" class="qty" type="number" min="1" value="1" />
-        </div>
-        <div class="row" style="margin-top:8px">
-          <button class="btn" id="scanBtn">Přičíst sken</button>
-          <button class="btn secondary" id="cameraBtn">Skenovat kamerou</button>
-        </div>
-        <div id="message" class="msg blue" style="margin-top:10px"><b>Připraveno</b><br><span>Načti Excel a začni skenovat.</span></div>
-      </div>
+
 
       <div class="card">
         <div class="row" style="justify-content:space-between"><h3 style="margin:0">Ignorované položky</h3><button class="btn secondary" id="toggleIgnored">Zobrazit</button></div>
@@ -82,15 +130,54 @@
   </div>
 </div>
 <script>
-let items = [], ignored = [], unknown = [], stream = null;
+let items = [], ignored = [], unknown = [], html5Scanner = null, sourceFileName = '', currentScanId = '', showOnlyBad = false;
 const $ = id => document.getElementById(id);
 function normalize(v){return String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()}
 function clean(v){return String(v ?? '').replace(/\.0$/,'').replace(/\s/g,'').trim()}
+function toInt(v){
+  let s=String(v ?? '').trim().replace(/\s/g,'').replace(',','.');
+  if(!s)return 0;
+  const n=Number(s);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+function fmtInt(v){return String(toInt(v))}
+function baseFileName(name){return String(name||'prevodka').replace(/\.[^/.]+$/,'')}
+function safeFileName(name){return baseFileName(name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'') || 'prevodka'}
+function diffText(i){
+  const diff=toInt(i.packed)-toInt(i.pozadovano);
+  if(diff===0)return 'Hotovo';
+  if(diff>0)return `Navíc o ${diff} ${i.mj}`;
+  return `Chybí ${Math.abs(diff)} ${i.mj}`;
+}
 function isRecycling(r){const k=normalize(r.katalog), n=normalize(r.nazev); return k.startsWith('phe') || n.includes('prispevek na recyklaci') || n.includes('recyklaci')}
-function findCol(headers,cands){const hs=headers.map(normalize); for(const c of cands){const i=hs.findIndex(h=>h.includes(normalize(c))); if(i>=0)return i} return -1}
+function findCol(headers,cands){const hs=headers.map(normalize); for(const c of cands){const cn=normalize(c); let i=hs.findIndex(h=>h===cn); if(i>=0)return i; i=hs.findIndex(h=>h.includes(cn)); if(i>=0)return i} return -1}
+function findMjCol(headers, pocetIndex){
+  const hs=headers.map(normalize);
+  let i=hs.findIndex(h=>h==='mj' || h==='merna jednotka' || h==='jednotka');
+  if(i>=0 && i!==pocetIndex)return i;
+  i=hs.findIndex((h,idx)=>idx!==pocetIndex && (h.includes('mj') || h.includes('jednotka')));
+  return i>=0 ? i : -1;
+}
 function status(i){if(Number(i.packed)===Number(i.pozadovano))return 'ok'; if(Number(i.packed)>Number(i.pozadovano))return 'over'; return 'missing'}
+function badItems(){return items.filter(i=>status(i)!=='ok')}
+function hasDocumentErrors(){return badItems().length>0}
+function focusItem(id){currentScanId=id; render(); scrollToCurrentScan()}
+function showErrorPanel(){
+  const bad=badItems();
+  const missing=bad.filter(i=>status(i)==='missing').length;
+  const over=bad.filter(i=>status(i)==='over').length;
+  $('errorPanel').classList.remove('hidden');
+  $('errorSummary').textContent = `Chybí: ${missing}. Navíc: ${over}. Nenalezené skeny: ${unknown.length} pouze informativně, export neblokují.`;
+  const itemRows = bad.map(i=>`<div class="pill" style="background:${status(i)==='over'?'#fee2e2':'#fef3c7'}"><b>${i.katalog}</b> · ${diffText(i)}<br><span>${i.nazev}</span><br><button class="jump" onclick="focusItem('${i.id}')">Přejít na položku</button></div>`).join('');
+  const unknownRows = unknown.map(s=>`<div class="pill" style="background:#fee2e2"><b>Nenalezený sken: ${s.code}</b><br><span>${s.qty} ks · ${s.time}</span></div>`).join('');
+  $('errorList').innerHTML = itemRows || '<div class="muted">Žádné chyby v množství. Doklad sedí.</div>';
+  if(unknownRows){ $('errorList').innerHTML += '<div class="muted" style="margin-top:10px">Informativní nenalezené skeny, export neblokují:</div>' + unknownRows; }
+  msg(hasDocumentErrors()?'bad':'ok', hasDocumentErrors()?'Doklad nesedí':'Doklad je v pořádku', hasDocumentErrors()?`Oprav chybějící nebo přebývající položky. Export zatím není povolený.`:'Všechny položky množstvím sedí. Nenalezené skeny jsou pouze informativní.');
+  $('errorPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+window.focusItem=focusItem
 function parseSheet(sheet){
-  const raw = XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});
+  const raw = XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:true});
   let hi=0;
   for(let i=0;i<Math.min(raw.length,20);i++){const line=raw[i].map(normalize).join('|'); if(line.includes('katalog')||line.includes('ean')||line.includes('carovy')||line.includes('čarovy')||line.includes('pocet')||line.includes('mnozstvi')){hi=i;break}}
   const h=raw[hi]||[];
@@ -98,39 +185,181 @@ function parseSheet(sheet){
   const inaz=findCol(h,['název','nazev','označení','oznaceni','popis','označení dodávky']);
   const ie=findCol(h,['ean','čárový kód','carovy kod','barcode']);
   const ip=findCol(h,['počet','pocet','množství','mnozstvi']);
-  const imj=findCol(h,['mj','jednotka']);
+  const imj=findMjCol(h, ip);
   return raw.slice(hi+1).map((r,idx)=>({
     id:`${idx}-${clean(r[ik])}-${clean(r[ie])}`,
     katalog: ik>=0 ? clean(r[ik]) : '',
     nazev: inaz>=0 ? String(r[inaz]??'').trim() : '',
     ean: ie>=0 ? clean(r[ie]) : '',
-    pozadovano: ip>=0 ? Number(String(r[ip]).replace(',','.')) || 0 : 0,
+    pozadovano: ip>=0 ? toInt(r[ip]) : 0,
     mj: imj>=0 ? String(r[imj]??'ks').trim() || 'ks' : 'ks',
     packed:0
   })).filter(r=>r.katalog||r.nazev||r.ean)
 }
 function msg(type,title,text){$('message').className='msg '+type; $('message').innerHTML=`<b>${title}</b><br><span>${text}</span>`}
 function render(){
-  const q=normalize($('search').value); const filtered=items.filter(i=>!q||normalize(`${i.katalog} ${i.nazev} ${i.ean}`).includes(q));
+  const q=normalize($('search').value); const filtered=items.filter(i=>(!showOnlyBad || status(i)!=='ok') && (!q||normalize(`${i.katalog} ${i.nazev} ${i.ean}`).includes(q)));
   const body=$('itemsBody');
   if(!filtered.length){body.innerHTML='<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Žádné položky k zobrazení.</td></tr>'} else {
-    body.innerHTML=filtered.map(i=>{const st=status(i); const label=st==='ok'?'Hotovo':st==='over'?'Navíc':'Chybí'; return `<tr class="${st}"><td><b>${i.katalog}</b></td><td>${i.nazev}</td><td><code>${i.ean}</code></td><td>${i.pozadovano} ${i.mj}</td><td><button class="smallbtn" onclick="setPacked('${i.id}',${Number(i.packed)-1})">−</button> <input class="packed" value="${i.packed}" onchange="setPacked('${i.id}',this.value)"> <button class="smallbtn" onclick="setPacked('${i.id}',${Number(i.packed)+1})">+</button></td><td>${label}</td></tr>`}).join('')
+    body.innerHTML=filtered.map(i=>{const st=status(i); const label=diffText(i); const cur=i.id===currentScanId?' current-scan':''; return `<tr data-id="${i.id}" class="${st}${cur}"><td><b>${i.katalog}</b></td><td>${i.nazev}</td><td><code>${i.ean}</code></td><td>${fmtInt(i.pozadovano)} ${i.mj}</td><td><button class="smallbtn" onclick="setPacked('${i.id}',${toInt(i.packed)-1})">−</button> <input class="packed" value="${fmtInt(i.packed)}" onchange="setPacked('${i.id}',this.value)"> <button class="smallbtn" onclick="setPacked('${i.id}',${toInt(i.packed)+1})">+</button></td><td>${label}</td></tr>`}).join('')
   }
-  $('sTotal').textContent=items.length; $('sOk').textContent=items.filter(i=>status(i)==='ok').length; $('sMissing').textContent=items.filter(i=>status(i)==='missing').length; $('sOver').textContent=items.filter(i=>status(i)==='over').length; $('sIgnored').textContent=ignored.length; $('sUnknown').textContent=unknown.length; $('exportBtn').disabled=!items.length;
+  $('fileNameInfo').innerHTML='<b>Importovaný soubor:</b> '+(sourceFileName || 'žádný');
+  $('sTotal').textContent=items.length; $('sOk').textContent=items.filter(i=>status(i)==='ok').length; $('sMissing').textContent=items.filter(i=>status(i)==='missing').length; $('sOver').textContent=items.filter(i=>status(i)==='over').length; $('sIgnored').textContent=ignored.length; $('sUnknown').textContent=unknown.length; $('exportBtn').disabled=!items.length; $('checkBtn').disabled=!items.length; $('resetBtn').disabled=!items.length; $('showOnlyBadBtn').textContent = showOnlyBad ? 'Zobrazit všechny položky' : 'Zobrazit pouze špatné';
   $('ignoredList').innerHTML=ignored.length?ignored.map(i=>`<div class="pill"><b>${i.katalog}</b><br><span>${i.nazev}</span></div>`).join(''):'Žádné.';
   $('unknownList').innerHTML=unknown.length?unknown.map(s=>`<div class="pill" style="background:#fee2e2"><b>${s.code}</b><br><span>${s.qty} ks · ${s.time}</span></div>`).join(''):'Zatím žádné.'
 }
-window.setPacked=(id,val)=>{items=items.map(i=>i.id===id?{...i,packed:Math.max(0,Number(val)||0)}:i); render()}
-function applyScan(){const code=clean($('scan').value); const qty=Math.max(1,Number($('qty').value)||1); if(!code)return;
+function scrollToCurrentScan(){
+  if(!currentScanId)return;
+  requestAnimationFrame(()=>{
+    const row = document.querySelector(`[data-id="${CSS.escape(currentScanId)}"]`);
+    if(row){
+      row.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  });
+}
+window.setPacked=(id,val)=>{items=items.map(i=>i.id===id?{...i,packed:Math.max(0,toInt(val))}:i); render()}
+function applyScan(){const code=clean($('scan').value); const qty=Math.max(1,toInt($('qty').value)||1); if(!code)return;
   const ign=ignored.find(i=>i.ean===code||i.katalog===code); if(ign){msg('warn','Ignorovaná položka',`${ign.katalog} je recyklační příspěvek a nezapočítává se do balení.`); $('scan').value=''; return}
   const idx=items.findIndex(i=>i.ean===code||i.katalog===code); if(idx<0){unknown.unshift({code,qty,time:new Date().toLocaleString('cs-CZ')}); msg('bad','Zboží není v převodce',`Kód ${code} nebyl nalezen.`); $('scan').value=''; render(); return}
-  items[idx].packed=Math.max(0,Number(items[idx].packed)+qty); const i=items[idx]; const st=status(i); msg(st==='ok'?'ok':st==='over'?'warn':'blue',i.nazev||i.katalog,`Zabaleno ${i.packed} / ${i.pozadovano} ${i.mj}`); $('scan').value=''; render(); $('scan').focus();
+  items[idx].packed=Math.max(0,toInt(items[idx].packed)+qty); currentScanId=items[idx].id; const i=items[idx]; const st=status(i); msg(st==='ok'?'ok':st==='over'?'warn':'blue',i.nazev||i.katalog,`Zabaleno ${fmtInt(i.packed)} / ${fmtInt(i.pozadovano)} ${i.mj}. ${diffText(i)}.`); $('scan').value=''; render(); scrollToCurrentScan(); $('scan').focus();
 }
-async function loadFile(file){if(!file)return; const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); const sheet=wb.Sheets[wb.SheetNames[0]]; const rows=parseSheet(sheet); items=[]; ignored=[]; unknown=[]; rows.forEach(r=>isRecycling(r)?ignored.push(r):items.push(r)); msg('ok','Převodka načtena',`Ke kontrole: ${items.length} položek. Ignorováno: ${ignored.length} recyklačních položek.`); render(); $('scan').focus()}
-function exportResult(){const rows=[['Katalog','Název','EAN','Požadováno','Zabaleno','Rozdíl','MJ','Stav'],...items.map(i=>[i.katalog,i.nazev,i.ean,i.pozadovano,i.packed,i.packed-i.pozadovano,i.mj,status(i)]),[],['Nenalezené skeny'],['Kód','Množství','Čas'],...unknown.map(s=>[s.code,s.qty,s.time])]; const ws=XLSX.utils.aoa_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Kontrola balení'); XLSX.writeFile(wb,`kontrola-baleni-${new Date().toISOString().slice(0,10)}.xlsx`)}
-async function cameraScan(){if(!('BarcodeDetector' in window)){msg('warn','Kamera není podporovaná','Použij ruční vstup nebo PDA čtečku jako klávesnici.');return} const video=$('video'); video.classList.remove('hidden'); stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}); video.srcObject=stream; await video.play(); const detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39']}); const loop=async()=>{if(!stream)return; const b=await detector.detect(video).catch(()=>[]); if(b.length){$('scan').value=b[0].rawValue; stopCamera(); applyScan(); return} requestAnimationFrame(loop)}; loop()}
-function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null} $('video').classList.add('hidden')}
-$('loadBtn').onclick=()=>$('file').click(); $('file').onchange=e=>loadFile(e.target.files[0]); $('exportBtn').onclick=exportResult; $('scanBtn').onclick=applyScan; $('scan').addEventListener('keydown',e=>{if(e.key==='Enter')applyScan()}); $('search').oninput=render; $('resetBtn').onclick=()=>{items=items.map(i=>({...i,packed:0})); unknown=[]; msg('blue','Vynulováno','Kontrola balení je připravena znovu.'); render()}; $('toggleIgnored').onclick=()=>{$('ignoredList').classList.toggle('hidden'); $('toggleIgnored').textContent=$('ignoredList').classList.contains('hidden')?'Zobrazit':'Skrýt'}; $('cameraBtn').onclick=cameraScan; render();
+async function loadFile(file){if(!file)return; sourceFileName=file.name || ''; const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); const sheet=wb.Sheets[wb.SheetNames[0]]; const rows=parseSheet(sheet); items=[]; ignored=[]; unknown=[]; currentScanId=''; showOnlyBad=false; $('errorPanel').classList.add('hidden'); rows.forEach(r=>isRecycling(r)?ignored.push(r):items.push(r)); msg('ok','Převodka načtena',`Soubor: ${sourceFileName}. Ke kontrole: ${items.length} položek. Ignorováno: ${ignored.length} recyklačních položek.`); render(); $('scan').focus()}
+function exportResult(){if(hasDocumentErrors()){showErrorPanel(); msg('bad','Export není možný','Doklad nesedí. Nejdřív oprav chybějící nebo přebývající položky. Nenalezené skeny export neblokují.'); return;} const date=new Date().toISOString().slice(0,10); const base=safeFileName(sourceFileName); const rows=[['Importovaný soubor',sourceFileName || ''],['Datum exportu',new Date().toLocaleString('cs-CZ')],[],['Katalog','Název','EAN','Požadováno','Zabaleno','Rozdíl','MJ','Stav'],...items.map(i=>[i.katalog,i.nazev,i.ean,toInt(i.pozadovano),toInt(i.packed),toInt(i.packed)-toInt(i.pozadovano),i.mj,diffText(i)]),[],['Nenalezené skeny'],['Kód','Množství','Čas'],...unknown.map(s=>[s.code,s.qty,s.time])]; const ws=XLSX.utils.aoa_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Kontrola balení'); XLSX.writeFile(wb,`${base}-kontrola-baleni-${date}.xlsx`)}
+async function improveCameraFocus(){
+  try{
+    const video = document.querySelector('#reader video');
+    const stream = video && video.srcObject;
+    const track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+    if(!track || !track.getCapabilities || !track.applyConstraints) return;
+    const caps = track.getCapabilities();
+    const advanced = [];
+    if(caps.focusMode && Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) advanced.push({focusMode:'continuous'});
+    if(caps.zoom){
+      const min = Number(caps.zoom.min || 1);
+      const max = Number(caps.zoom.max || min);
+      const step = Number(caps.zoom.step || 0.1);
+      const wanted = Math.min(max, Math.max(min, min + (max - min) * 0.25));
+      const zoom = Math.round(wanted / step) * step;
+      advanced.push({zoom});
+    }
+    if(advanced.length) await track.applyConstraints({advanced});
+  }catch(e){}
+}
+
+async function cameraScan(){
+  if(!window.isSecureContext){
+    msg('warn','Kamera je blokovaná prohlížečem','Skenování kamerou funguje jen přes HTTPS nebo na localhostu. Když otevřeš index.html přímo jako soubor, prohlížeč kameru většinou nepovolí. Ruční vstup a PDA čtečka jako klávesnice fungují dál.');
+    return;
+  }
+  if(typeof Html5Qrcode === 'undefined'){
+    msg('warn','Chybí knihovna pro skenování','Zařízení musí být online, aby se načetla knihovna html5-qrcode z CDN.');
+    return;
+  }
+  await stopCamera();
+  $('cameraOverlay').classList.remove('hidden');
+  $('cameraBtn').textContent='Kamera spuštěna';
+  $('cameraBtn').disabled=true;
+  html5Scanner = new Html5Qrcode('reader');
+  const qrWidth = Math.min(window.innerWidth - 40, 560);
+  const qrHeight = Math.max(120, Math.round(qrWidth * 0.34));
+  const config={
+    fps:14,
+    qrbox:{width:qrWidth,height:qrHeight},
+    aspectRatio:1.777,
+    rememberLastUsedCamera:true,
+    experimentalFeatures:{useBarCodeDetectorIfSupported:true},
+    formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]
+  };
+  const cameraConstraints = {
+    facingMode:{ideal:'environment'},
+    width:{ideal:1920},
+    height:{ideal:1080},
+    advanced:[{focusMode:'continuous'}]
+  };
+  const onSuccess = decodedText => {
+    if(!decodedText)return;
+    $('scan').value=decodedText;
+    stopCamera().finally(()=>applyScan());
+  };
+  try{
+    await html5Scanner.start(cameraConstraints, config, onSuccess);
+    setTimeout(improveCameraFocus, 600);
+    msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
+  }catch(e){
+    try{
+      await html5Scanner.start({facingMode:'environment'}, config, onSuccess);
+      setTimeout(improveCameraFocus, 600);
+      msg('blue','Kamera spuštěna','Namiř kameru na EAN kód. Po načtení se položka automaticky přičte a kamera se zavře.');
+    }catch(e2){
+      await stopCamera();
+      msg('bad','Kameru se nepodařilo spustit', String(e2 && e2.message ? e2.message : e2));
+    }
+  }
+}
+async function stopCamera(){
+  if(html5Scanner){
+    try{ await html5Scanner.stop(); }catch(e){}
+    try{ await html5Scanner.clear(); }catch(e){}
+    html5Scanner=null;
+  }
+  $('cameraOverlay').classList.add('hidden');
+  $('cameraBtn').textContent='Skenovat kamerou';
+  $('cameraBtn').disabled=false;
+  $('cameraBtn').onclick=cameraScan;
+}
+function resetPacking(){
+  const ok = confirm('Pozor, chystáte se vynulovat všechna zadaná množství a smazat nenalezené skeny. Opravdu chcete pokračovat?');
+  if(!ok)return;
+  items=items.map(i=>({...i,packed:0}));
+  unknown=[];
+  currentScanId='';
+  showOnlyBad=false;
+  $('errorPanel').classList.add('hidden');
+  msg('blue','Vynulováno','Kontrola balení je připravena znovu.');
+  render();
+}
+
+let deferredInstallPrompt = null;
+function updateInstallButton(){
+  const btn = $('installBtn');
+  if(!btn) return;
+  if(deferredInstallPrompt){ btn.classList.remove('hidden'); }
+  else { btn.classList.add('hidden'); }
+}
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallButton();
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  updateInstallButton();
+  msg('ok','Aplikace nainstalována','PDA kontrola balení byla přidána do mobilu.');
+});
+async function installApp(){
+  if(!deferredInstallPrompt){
+    msg('warn','Instalace zatím není připravená','Otevři aplikaci přes HTTPS adresu z GitHub Pages, chvíli ji nech načtenou a obnov stránku. Pokud se tlačítko neobjeví, Chrome stále nevidí platný manifest nebo aktivní service worker.');
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice.catch(()=>{});
+  deferredInstallPrompt = null;
+  updateInstallButton();
+}
+async function registerServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    const reg = await navigator.serviceWorker.register('./service-worker.js?v=4', { scope: './' });
+    reg.update && reg.update().catch(()=>{});
+    if(!navigator.serviceWorker.controller){
+      navigator.serviceWorker.ready.then(()=>{}).catch(()=>{});
+    }
+  }catch(e){
+    msg('warn','Service worker se neregistroval', String(e && e.message ? e.message : e));
+  }
+}
+$('loadBtn').onclick=()=>$('file').click(); $('file').onchange=e=>loadFile(e.target.files[0]); $('checkBtn').onclick=showErrorPanel; $('exportBtn').onclick=exportResult; $('installBtn').onclick=installApp; $('showOnlyBadBtn').onclick=()=>{showOnlyBad=!showOnlyBad; render();}; $('hideErrorPanelBtn').onclick=()=>{$('errorPanel').classList.add('hidden')}; $('scanBtn').onclick=applyScan; $('scan').addEventListener('keydown',e=>{if(e.key==='Enter')applyScan()}); $('search').oninput=render; $('resetBtn').onclick=resetPacking; $('toggleIgnored').onclick=()=>{$('ignoredList').classList.toggle('hidden'); $('toggleIgnored').textContent=$('ignoredList').classList.contains('hidden')?'Zobrazit':'Skrýt'}; $('cameraBtn').onclick=cameraScan; $('cameraCloseBtn').onclick=stopCamera; $('cameraFocusBtn').onclick=improveCameraFocus; window.addEventListener('keydown',e=>{if(e.key==='Escape')stopCamera()}); window.addEventListener('load', registerServiceWorker); render();
+
 </script>
 </body>
 </html>
